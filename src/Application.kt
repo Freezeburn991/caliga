@@ -1,8 +1,13 @@
 package com.bluedragon
 
+import com.bluedragon.auth.JwtService
+import com.bluedragon.auth.MySession
+import com.bluedragon.auth.hash
 import com.bluedragon.controllers.UserController
 import com.bluedragon.model.User
-import com.bluedragon.model.UserDTO
+import com.bluedragon.routes.users
+import com.bluedragon.services.DatabaseFactory
+import com.bluedragon.services.DatabaseFactory.initDB
 import com.bluedragon.services.GeneratePassword
 import io.ktor.application.*
 import io.ktor.response.*
@@ -15,29 +20,58 @@ import com.zaxxer.hikari.HikariDataSource
 import io.ktor.auth.jwt.jwt
 import io.ktor.jackson.*
 import io.ktor.features.*
+import io.ktor.locations.KtorExperimentalLocationsAPI
+import io.ktor.locations.Locations
 import io.ktor.request.receive
 import io.ktor.server.netty.EngineMain
+import io.ktor.sessions.Sessions
+import io.ktor.sessions.cookie
+import io.ktor.util.KtorExperimentalAPI
 import org.jetbrains.exposed.sql.Database
 import java.util.*
 
 
+
 fun main(args: Array<String>): Unit = EngineMain.main(args)
 
+@KtorExperimentalAPI
+@KtorExperimentalLocationsAPI
 @Suppress("unused") // Referenced in application.conf
 @JvmOverloads
 fun Application.module(testing: Boolean = false) {
 
-    val userController = UserController()
+    install(Locations) {
+    }
+
+    install(Sessions){
+        cookie<MySession>("MY_SESSION"){
+            cookie.extensions["SameSite"] = "lax"
+        }
+    }
+
+    //This code initializes the data layer
+    initDB()
+    val db = UserController()
+
+    // Handles authentication
+    val jwtService = JwtService()
+    val hashFunction = {s: String -> hash(s)}
 
     install(Authentication) {
-     /*  jwt{
-           verifier(JwtConfig.verifier)
-           realm = "com.bluedragon"
-           validate {
+        jwt ("jwt"){
+            verifier(jwtService.verifier)
+            realm = "Blue Dragon Server"
+            validate {
+                val payload = it.payload
+                val claim = payload.getClaim("id")
+                val claimString = claim.asInt()
+                val user = db.findUser(claimString)
+                user
+            }
+        }
 
-           }
-       }*/
     }
+
 
     install(ContentNegotiation) {
         jackson {
@@ -62,30 +96,9 @@ fun Application.module(testing: Boolean = false) {
         header("X-Engine", "Ktor") // will send this header with each response
     }
 
-    initDB()
+
     routing {
-        get("/") {
-            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
-        }
-
-       post("/login"){
-
-           val post = call.receive<User>()
-          // val user = users.getOrPut(post.username, post.password)
-
-
-       }
-        // dobro za sada napraviti jos provjere za mail ...
-       post("/users"){
-           val userDto = GeneratePassword.generatePasswordForUser(call.receive<UserDTO>())
-           userController.insert(userDto)
-           call.respond(HttpStatusCode.Created)
-       }
-
-        // Izbrisati ovo jer se može doći do svih korisnika
-        get("/users"){
-            call.respond(userController.getAll())
-        }
+        users(db, jwtService, hashFunction)
 
         install(StatusPages) {
             exception<AuthenticationException> { cause ->
@@ -99,13 +112,7 @@ fun Application.module(testing: Boolean = false) {
     }
 }
 
-fun initDB(){
-    val config = HikariConfig("/hikari.properties")
-    config.schema = "public"
-    val ds = HikariDataSource(config)
-    Database.connect(ds)
-}
-
+const val API_VERSION = "/v1"
 class AuthenticationException : RuntimeException()
 class AuthorizationException : RuntimeException()
 

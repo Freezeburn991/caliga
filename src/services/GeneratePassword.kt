@@ -1,7 +1,7 @@
 package com.bluedragon.services
 
 import com.bluedragon.model.User
-import com.bluedragon.model.UserDTO
+import org.mindrot.jbcrypt.BCrypt
 import java.security.NoSuchAlgorithmException
 import  java.security.SecureRandom
 import java.security.spec.InvalidKeySpecException
@@ -13,10 +13,10 @@ import java.util.Arrays
 
 class GeneratePassword {
 
-companion object {
 
+
+    /*
     fun generatePasswordForUser(userDTO: UserDTO): UserDTO {
-
 
         var salt: String = generateSalt().get()
         var password: String = userDTO.password
@@ -74,6 +74,5 @@ companion object {
     fun verifyPassword(password: String, key: String, salt: String): Boolean {
         val optEncrypted = hashPassword(password, salt)
         return if (!optEncrypted.isPresent) false else optEncrypted.get() == key
-    }
-}
+    }*/
 }

@@ -1,13 +1,13 @@
-package com.bluedragon.model
+package com.bluedragon.Repository
 
+import org.jetbrains.exposed.sql.Column
 import org.jetbrains.exposed.sql.Table
 
 object Users : Table() {
-    val id = uuid("id").primaryKey()
+    val id : Column<Int> = integer("id").autoIncrement().primaryKey()
     val firstname = text("firstname")
     val lastname = text("lastname")
     val username = text("username")
     val password = text("password")
-    val salt = text("salt")
     val email = text("email")
 }
